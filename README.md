@@ -43,7 +43,7 @@ type Service struct {
 }
 
 func (s *Service) CreatePost(ctx context.Context, userID int, post *Post) error {
-    return s.txnManager.Do(ctx, func(ctx context.Context) error {
+    return s.txnManager.RunInTxn(ctx, func(ctx context.Context) error {
         _, err := s.userRepo.GetByID(ctx, UserID)
         if err != nil {
             return err
@@ -64,14 +64,17 @@ func (s *Service) CreatePost(ctx context.Context, userID int, post *Post) error 
 
 ### using timeouts
 ```go
-s.txnManager.Do(ctx, func(ctx context.Context) error {
+s.txnManager.RunInTxn(ctx, func(ctx context.Context) error {
     return s.userRepo.GetByID(ctx, 123)
 }, gollback.WithTimeout(5*time.Second))
 ```
+> [!IMPORTANT]
+> the timeout cancels in-progress database operations and prevents commits but does not forcibly terminate your function. If your function has long-running computations between database calls, the transaction will remain open until the function
+completes. For early exit, check ctx.Done() periodically.
 
 ### read-only transactions
 ```go
-s.txnManager.Do(ctx, func(ctx context.Context) error {
+s.txnManager.RunInTxn(ctx, func(ctx context.Context) error {
     return s.userRepo.GetByID(ctx, 123)
 }, gollback.ReadOnly())
 ```
